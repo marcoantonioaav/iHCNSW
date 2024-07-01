@@ -1,29 +1,41 @@
 import numpy as np
 import tensorflow_datasets as tfds
-
+import os
 from knns.exhaustive import ExhaustiveKnn
 
 class Dataset():
     def __init__(self) -> None:
         self.db = []
-        self.test = []
+        self.test_embeddings = []
+        self.test_neighbors = []
 
     def load_from_tfds(self, name):
-        self.test = list(tfds.load(name, split='test'))
-        self.db = list(tfds.load(name, split='database'))
+        if os.path.isfile(f"data/tfds_db_{name}.npy"):
+            self.test_embeddings = np.load(f"data/tfds_test_embeddings_{name}.npy").tolist()
+            self.test_neighbors = np.load(f"data/tfds_test_neighbors_{name}.npy").tolist()
+            self.db = np.load(f"data/tfds_db_{name}.npy").tolist()
+        else:
+            tfds_test = list(tfds.load(name, split='test'))
+            tfds_db = list(tfds.load(name, split='database'))
+            self.test_embeddings = [i["embedding"] for i in tfds_test]
+            self.test_neighbors = [i["neighbors"]["index"] for i in tfds_test]
+            self.db = [i["embedding"] for i in tfds_db]
+            np.save(f"data/tfds_test_embeddings_{name}.npy", self.test_embeddings)
+            np.save(f"data/tfds_test_neighbors_{name}.npy", self.test_neighbors)
+            np.save(f"data/tfds_db_{name}.npy", self.db)
 
     def get_test_size(self):
-        return len(self.test)
+        return len(self.test_embeddings)
 
     def get_db_embeddings(self):
-        return [i["embedding"] for i in self.db]
+        return self.db
 
     def get_test_embedding(self, test_index):
-        return self.test[test_index]["embedding"]
+        return self.test_embeddings[test_index]
 
     def get_test_recall(self, test_index, search_result):
         k = len(search_result)
-        gold_result = [i for i in self.test[test_index]["neighbors"]["index"][:k]]
+        gold_result = [i for i in self.test_neighbors[test_index][:k]]
         found = 0
         for i in range(k):
             if gold_result.count(search_result[i][0]) != 0:
