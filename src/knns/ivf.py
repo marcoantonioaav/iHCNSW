@@ -1,8 +1,6 @@
 from knns.base import KNNSBase
 from sklearn.cluster import KMeans
 
-from knns.exhaustive import ExhaustiveKnn
-
 class IVF(KNNSBase):
     def __init__(self, n_buckets=4, n_probes=1) -> None:
         super().__init__()

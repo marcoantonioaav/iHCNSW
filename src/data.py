@@ -42,13 +42,13 @@ class Dataset():
                 found += 1
         return found/k
 
-def generate_embeddings(n, size=4):
+def generate_embeddings(n, size=128):
     embeddings = []
     for i in range(n):
         embeddings.append(generate_embedding(size))
     return embeddings
 
-def generate_embedding(size=4):
+def generate_embedding(size=128):
     return np.random.rand(size)
 
 if __name__=="__main__":
