@@ -38,15 +38,21 @@ class HNSW_Graph():
     
 
 class HNSW(KNNSBase):
-    def __init__(self, m=5, m_max=5, ef_construction=30, mL=1, ef=30) -> None:
+    def __init__(self, m=5, m_max=None, ef_construction=30, mL=None, ef=30) -> None:
         super().__init__()
         self.graph = HNSW_Graph()
         self.plain_data = []
         
         self.m = m
-        self.m_max = m_max
+        if m_max == None:
+            self.m_max = m
+        else:
+            self.m_max = m_max
         self.ef_construction = ef_construction
-        self.mL = mL
+        if mL == None:
+            self.mL = 1/log(m)
+        else:
+           self.mL = mL 
 
         self.ef = ef
 
@@ -68,7 +74,7 @@ class HNSW(KNNSBase):
         W = []
         ep = self.graph.enter_point_index
         L = self.graph.get_height()-1
-        for lc in range(L, 1):
+        for lc in range(L, 0, -1):
             W = self.search_layer(query, ep=ep, ef=1, lc=lc)
             ep = self.get_nearest(query, W)
         W = self.search_layer(query, ep=ep, ef=self.ef, lc=0)
@@ -94,7 +100,7 @@ class HNSW(KNNSBase):
         ep = self.graph.enter_point_index
         L = self.graph.get_height()-1
         l = floor(-log(uniform(0, 1))*self.mL)
-        for lc in range(L, l+1, -1):
+        for lc in range(L, l, -1):
             w = self.search_layer(q, ep=ep, ef=1, lc=lc)
             ep = self.get_nearest(q, w)
         for lc in range(min(L, l), -1, -1):
@@ -108,6 +114,11 @@ class HNSW(KNNSBase):
                     self.graph.set_neighbors(e, lc, e_new_conn)
             ep = w[0]
         if l > L:
+            for lc in range(L+1, l+1): #adição de nova layer (otimizar)
+                new_layer = []
+                self.graph.layers.append(new_layer)
+                neighbors = []
+                self.graph.insert_node(HNSW_Node(index, q, neighbors), lc)
             self.graph.enter_point_index = index
 
     def search_layer(self, q, ep, ef, lc):
