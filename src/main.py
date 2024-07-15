@@ -82,5 +82,7 @@ if __name__=="__main__":
     #test_ann_w_generated_embeddings(IVF(n_buckets=6, n_probes=3))
     #test_ann(IVF(n_buckets=15, n_probes=3))
     #test_hnsw()
-    #test_ann_w_generated_embeddings(HNSW())
+    #test_ann_w_generated_embeddings(HNSW(m=30, ef_construction=5))
     test_ann(HNSW())
+    #test_ann(HNSW(ef_construction=5))
+    #test_ann_w_generated_embeddings(ExhaustiveKnn())

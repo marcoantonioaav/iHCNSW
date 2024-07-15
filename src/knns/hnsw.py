@@ -4,44 +4,53 @@ from knns.base import KNNSBase
 from random import randint, uniform
 
 class HNSW_Node:
-    def __init__(self, index, embedding, neighbors) -> None:
-        self.index = index
+    def __init__(self, embedding) -> None:
         self.embedding = embedding
-        self.neighbors = neighbors
+        self.layer_neighbors = [[]]
+
+    def set_neighbors(self, neighbors, layer):
+        for lc in range(self.get_heigth(), layer+1):
+            new_layer = []
+            self.layer_neighbors.append(new_layer)
+        self.layer_neighbors[layer] = neighbors
+
+    def add_neighbor(self, neighbor, layer):
+        self.layer_neighbors[layer].append(neighbor)
+
+    def get_neighbors(self, layer):
+        return self.layer_neighbors[layer]
+
+    def get_heigth(self):
+        return len(self.layer_neighbors)
 
 class HNSW_Graph():
     def __init__(self) -> None:
-        self.layers = [[]]
+        self.nodes = []
         self.enter_point_index = None
+        self.height = 0
 
-    def insert_node(self, node, layer) -> None:
-        self.layers[layer].append(node)
-        for index in node.neighbors:
-            neighbor = self.get_node(index, layer)
-            neighbor.neighbors.append(node.index)
+    def insert_data(self, data):
+        for e in data:
+            self.nodes.append(HNSW_Node(e))
 
-    def set_neighbors(self, index, layer, neighbors):
-        node = self.get_node(index, layer)
-        for neighbor_index in node.neighbors:
-            neighbor = self.get_node(neighbor_index, layer)
-            neighbor.neighbors.remove(index)
-        node.neighbors = neighbors
-        for neighbor_index in node.neighbors:
-            neighbor = self.get_node(neighbor_index, layer)
-            neighbor.neighbors.append(index)
+    def set_bidirectional_links(self, index, neighbors, layer):
+        node = self.get_node(index)
+        node.set_neighbors(neighbors, layer)
+        for neighbor in neighbors:
+            if neighbor != index:
+                node = self.get_node(neighbor)
+                node.add_neighbor(index, layer)
+        if layer+1 > self.height:
+            self.height = layer+1
 
-    def get_node(self, index, layer) -> HNSW_Node:
-        return next(node for node in self.layers[layer] if node.index == index)
-
-    def get_height(self) -> int:
-        return len(self.layers)
+    def get_node(self, index) -> HNSW_Node:
+        return self.nodes[index]
     
 
 class HNSW(KNNSBase):
     def __init__(self, m=5, m_max=None, ef_construction=30, mL=None, ef=30) -> None:
         super().__init__()
         self.graph = HNSW_Graph()
-        self.plain_data = []
         
         self.m = m
         if m_max == None:
@@ -57,23 +66,19 @@ class HNSW(KNNSBase):
         self.ef = ef
 
     def insert(self, data):
-        self.graph.layers[0].append(HNSW_Node(0, data[0], []))
-        self.graph.enter_point_index = 0
+        self.graph.insert_data(data)
         start = time()
         for i, e in enumerate(data):
             if i%100 == 0:
                 end = time()
                 print(f"{i}: {end-start}s")
                 start = time()
-                
-            self.plain_data.append(e)
-            if i!=0:
-                self.insert_element(i, e)
+            self.insert_element(i, e)
 
     def search(self, query, k=1):
         W = []
         ep = self.graph.enter_point_index
-        L = self.graph.get_height()-1
+        L = self.graph.height-1
         for lc in range(L, 0, -1):
             W = self.search_layer(query, ep=ep, ef=1, lc=lc)
             ep = self.get_nearest(query, W)
@@ -83,7 +88,7 @@ class HNSW(KNNSBase):
     def get_k_nearest_result(self, query, node_indexes, k=1):
         results = []
         for index in node_indexes:
-            embedding = self.plain_data[index]
+            embedding = self.graph.get_node(index).embedding
             distance = self.get_distance(query, embedding)
             if len(results) < k:
                 results.append((index, distance))
@@ -98,7 +103,7 @@ class HNSW(KNNSBase):
     def insert_element(self, index, q):
         w = []
         ep = self.graph.enter_point_index
-        L = self.graph.get_height()-1
+        L = self.graph.height-1
         l = floor(-log(uniform(0, 1))*self.mL)
         for lc in range(L, l, -1):
             w = self.search_layer(q, ep=ep, ef=1, lc=lc)
@@ -106,19 +111,17 @@ class HNSW(KNNSBase):
         for lc in range(min(L, l), -1, -1):
             w = self.search_layer(q, ep=ep, ef=self.ef_construction, lc=lc)
             neighbors = self.select_neighbors(q, w, self.m)
-            self.graph.insert_node(HNSW_Node(index, q, neighbors), lc)
+            self.graph.set_bidirectional_links(index, neighbors, lc)
             for e in neighbors:
-                e_conn =  self.graph.get_node(e, lc).neighbors
+                e_conn =  self.graph.get_node(e).get_neighbors(lc)
                 if len(e_conn) > self.m_max:
                     e_new_conn = self.select_neighbors(e, e_conn, self.m_max)
-                    self.graph.set_neighbors(e, lc, e_new_conn)
+                    self.graph.get_node(e).set_neighbors(e_new_conn, lc)
             ep = w[0]
         if l > L:
-            for lc in range(L+1, l+1): #adição de nova layer (otimizar)
-                new_layer = []
-                self.graph.layers.append(new_layer)
-                neighbors = []
-                self.graph.insert_node(HNSW_Node(index, q, neighbors), lc)
+            neighbors = []
+            self.graph.get_node(index).set_neighbors(neighbors, l)
+            self.graph.height = l+1
             self.graph.enter_point_index = index
 
     def search_layer(self, q, ep, ef, lc):
@@ -129,16 +132,16 @@ class HNSW(KNNSBase):
             c = self.get_nearest(q, C)
             C.remove(c)
             f = self.get_furthest(q, W)
-            c_node = self.graph.get_node(c, lc)
-            f_embedding = self.graph.get_node(f, lc).embedding
+            c_node = self.graph.get_node(c)
+            f_embedding = self.graph.get_node(f).embedding
             if self.get_distance(c_node.embedding, q) > self.get_distance(f_embedding, q):
                 break
-            for e in c_node.neighbors:
+            for e in c_node.get_neighbors(lc):
                 if v.count(e) == 0:
                     v.append(e)
                     f = self.get_furthest(q, W)
-                    e_node = self.graph.get_node(e, lc)
-                    f_embedding = self.graph.get_node(f, lc).embedding
+                    e_node = self.graph.get_node(e)
+                    f_embedding = self.graph.get_node(f).embedding
                     if self.get_distance(e_node.embedding, q) < self.get_distance(f_embedding, q) or len(W) < ef:
                         C.append(e)
                         W.append(e)
@@ -152,7 +155,7 @@ class HNSW(KNNSBase):
     def get_nearest(self, embedding, node_indexes, k=1):
         distances = []
         for index in node_indexes:
-            distances.append((index, self.get_distance(self.plain_data[index], embedding)))
+            distances.append((index, self.get_distance(self.graph.get_node(index).embedding, embedding)))
         distances.sort(key=lambda tup: tup[1])
         if k == 1:
             return distances[0][0]
@@ -161,8 +164,7 @@ class HNSW(KNNSBase):
     def get_furthest(self, embedding, node_indexes, k=1):
         distances = []
         for index in node_indexes:
-            node = self.graph.get_node(index, 0)
-            distances.append((index, self.get_distance(self.plain_data[index], embedding)))
+            distances.append((index, self.get_distance(self.graph.get_node(index).embedding, embedding)))
         distances.sort(key=lambda tup: tup[1], reverse=True)
         if k == 1:
             return distances[0][0]

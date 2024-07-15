@@ -24,7 +24,7 @@ class IVF(KNNSBase):
         domain = []
         for probe in sorted_probes[:self.n_probes]:
             domain += self.buckets[probe]
-               
+        
         results = []
         for index, embedding in domain:
             distance = self.get_distance(query, embedding)
