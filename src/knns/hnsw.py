@@ -33,6 +33,13 @@ class HNSW_Graph():
         for e in data:
             self.nodes.append(HNSW_Node(e))
 
+    def remove_bidirectional_links(self, index, layer):
+        node = self.get_node(index)
+        for neighbor in node.get_neighbors(layer):
+            self.get_node(neighbor).get_neighbors(layer).remove(index)
+        neighbors = []
+        node.set_neighbors(neighbors, layer)
+
     def set_bidirectional_links(self, index, neighbors, layer):
         node = self.get_node(index)
         node.set_neighbors(neighbors, layer)
@@ -81,23 +88,25 @@ class HNSW(KNNSBase):
         L = self.graph.height-1
         for lc in range(L, 0, -1):
             W = self.search_layer(query, ep=ep, ef=1, lc=lc)
-            ep = self.get_nearest(query, W)
+            ep = self.get_nearest(W)
         W = self.search_layer(query, ep=ep, ef=self.ef, lc=0)
-        return self.get_k_nearest_result(query, W, k)
+        return self.get_nearest(W, k, return_distances=True, list_always=True)
     
-    def get_k_nearest_result(self, query, node_indexes, k=1):
+    def get_nearest(self, node_indexes_and_distances, k=1, furthest=False, return_distances=False, list_always=False):
         results = []
-        for index in node_indexes:
-            embedding = self.graph.get_node(index).embedding
-            distance = self.get_distance(query, embedding)
+        for index, distance in node_indexes_and_distances:
             if len(results) < k:
                 results.append((index, distance))
-                results.sort(key=lambda tup: tup[1])
+                results.sort(key=lambda tup: tup[1], reverse=furthest)
             else:
-                if distance < results[-1][1]:
+                if (not furthest and distance < results[-1][1]) or (furthest and distance > results[-1][1]):
                     results.remove(results[-1])
                     results.append((index, distance))
-                    results.sort(key=lambda tup: tup[1])
+                    results.sort(key=lambda tup: tup[1], reverse=furthest)
+        if not return_distances:
+            results = [tup[0] for tup in results]
+        if k == 1 and not list_always:
+            return results[0]
         return results
             
     def insert_element(self, index, q):
@@ -107,17 +116,20 @@ class HNSW(KNNSBase):
         l = floor(-log(uniform(0, 1))*self.mL)
         for lc in range(L, l, -1):
             w = self.search_layer(q, ep=ep, ef=1, lc=lc)
-            ep = self.get_nearest(q, w)
-        for lc in range(min(L, l), -1, -1):
+            ep = self.get_nearest(w)
+        for lc in range(min(L, l), -1, -1): 
             w = self.search_layer(q, ep=ep, ef=self.ef_construction, lc=lc)
             neighbors = self.select_neighbors(q, w, self.m)
             self.graph.set_bidirectional_links(index, neighbors, lc)
             for e in neighbors:
-                e_conn =  self.graph.get_node(e).get_neighbors(lc)
+                e_node = self.graph.get_node(e)
+                e_conn = e_node.get_neighbors(lc)
                 if len(e_conn) > self.m_max:
+                    e_conn = [(e_c, self.get_distance(e_node.embedding, self.graph.get_node(e_c).embedding)) for e_c in e_conn]
                     e_new_conn = self.select_neighbors(e, e_conn, self.m_max)
-                    self.graph.get_node(e).set_neighbors(e_new_conn, lc)
-            ep = w[0]
+                    self.graph.remove_bidirectional_links(e, lc)
+                    self.graph.set_bidirectional_links(e, e_new_conn, lc)
+            ep = w[0][0]
         if l > L:
             neighbors = []
             self.graph.get_node(index).set_neighbors(neighbors, l)
@@ -125,47 +137,29 @@ class HNSW(KNNSBase):
             self.graph.enter_point_index = index
 
     def search_layer(self, q, ep, ef, lc):
+        ep_distance = self.get_distance(q, self.graph.get_node(ep).embedding)
+        ep_and_distance = (ep, ep_distance)
         v = [ep]
-        C = [ep]
-        W = [ep]
+        C = [ep_and_distance]
+        W = [ep_and_distance]
         while len(C) > 0:
-            c = self.get_nearest(q, C)
-            C.remove(c)
-            f = self.get_furthest(q, W)
-            c_node = self.graph.get_node(c)
-            f_embedding = self.graph.get_node(f).embedding
-            if self.get_distance(c_node.embedding, q) > self.get_distance(f_embedding, q):
+            c, c_distance = self.get_nearest(C, return_distances=True)
+            C.remove((c, c_distance))
+            f, f_distance = self.get_nearest(W, furthest=True, return_distances=True)
+            if c_distance > f_distance:
                 break
-            for e in c_node.get_neighbors(lc):
+            for e in self.graph.get_node(c).get_neighbors(lc):
                 if v.count(e) == 0:
                     v.append(e)
-                    f = self.get_furthest(q, W)
-                    e_node = self.graph.get_node(e)
-                    f_embedding = self.graph.get_node(f).embedding
-                    if self.get_distance(e_node.embedding, q) < self.get_distance(f_embedding, q) or len(W) < ef:
-                        C.append(e)
-                        W.append(e)
+                    f, f_distance = self.get_nearest(W, furthest=True, return_distances=True)
+                    e_distance = self.get_distance(q, self.graph.get_node(e).embedding)
+                    if e_distance < f_distance or len(W) < ef:
+                        e_and_distance = (e, e_distance)
+                        C.append(e_and_distance)
+                        W.append(e_and_distance)
                         if len(W) > ef:
-                           W.remove(self.get_furthest(q, W))
+                           W.remove((f, f_distance))
         return W 
     
     def select_neighbors(self, q, C, M):
-        return self.get_nearest(q, C, M)
-    
-    def get_nearest(self, embedding, node_indexes, k=1):
-        distances = []
-        for index in node_indexes:
-            distances.append((index, self.get_distance(self.graph.get_node(index).embedding, embedding)))
-        distances.sort(key=lambda tup: tup[1])
-        if k == 1:
-            return distances[0][0]
-        return [t[0] for t in distances][:k]
-    
-    def get_furthest(self, embedding, node_indexes, k=1):
-        distances = []
-        for index in node_indexes:
-            distances.append((index, self.get_distance(self.graph.get_node(index).embedding, embedding)))
-        distances.sort(key=lambda tup: tup[1], reverse=True)
-        if k == 1:
-            return distances[0][0]
-        return [t[0] for t in distances][:k]
+        return self.get_nearest(C, k=M, list_always=True)
