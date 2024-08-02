@@ -3,6 +3,8 @@ import tensorflow_datasets as tfds
 import os
 from knns.exhaustive import ExhaustiveKnn
 
+np.random.seed(0)
+
 class Dataset():
     def __init__(self) -> None:
         self.db = []

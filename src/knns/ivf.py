@@ -11,7 +11,7 @@ class IVF(KNNSBase):
         self.n_probes = n_probes
 
     def insert(self, data):
-        model = KMeans(n_clusters=len(self.buckets))
+        model = KMeans(n_clusters=len(self.buckets), random_state=0)
         labels = model.fit_predict(data)
         for i, e in enumerate(data):
             self.buckets[labels[i]].append((i, e))            
