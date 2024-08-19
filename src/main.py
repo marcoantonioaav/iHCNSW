@@ -1,3 +1,4 @@
+from knns.centroid_hnsw import CentroidHNSW
 from knns.exhaustive import ExhaustiveKnn
 import data
 from knns.hnsw import HNSW
@@ -6,7 +7,7 @@ from time import time
 import cProfile
 import pstats
 
-def test_ann_w_generated_embeddings(ann, embedding_size=128, db_size=5000, test_size=5, k=10):
+def test_ann_w_generated_embeddings(ann, embedding_size=128, db_size=5000, test_size=5, k=100):
     db_embeddings = data.generate_embeddings(db_size, size=embedding_size)
     
     knn = ExhaustiveKnn()
@@ -87,14 +88,16 @@ def profile_search(ann, embedding_size=128, db_size=200, k=10):
 if __name__=="__main__":
     #with cProfile.Profile() as profile:
         #test_ann(ExhaustiveKnn())
-        test_ann_w_generated_embeddings(IVF(n_buckets=6, n_probes=3))
+        #test_ann_w_generated_embeddings(IVF(n_buckets=6, n_probes=3))
         #test_ann(IVF(n_buckets=15, n_probes=3))
         #test_ann_w_generated_embeddings(HNSW(m=20, m_max=50, ef_construction=5, mL=0))
         #test_ann_w_generated_embeddings(HNSW())# 468126 get_distance
         #test_ann_w_generated_embeddings(HNSW(m=25, m_max=30, ef_construction=70, ef=100))
         test_ann(HNSW())
         #test_ann(HNSW(ef_construction=5))
-        test_ann_w_generated_embeddings(ExhaustiveKnn()) #1200 get_distance
+        #test_ann_w_generated_embeddings(ExhaustiveKnn()) #1200 get_distance
+
+        #test_ann_w_generated_embeddings(CentroidHNSW(n_clusters=4))
 
     #stats = pstats.Stats(profile)
     #stats.sort_stats(pstats.SortKey.TIME)

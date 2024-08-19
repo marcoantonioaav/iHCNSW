@@ -1,5 +1,6 @@
 from math import floor, log
 from time import time
+
 from knns.base import KNNSBase
 from random import uniform, seed
 from ui import print_indexing_frame
@@ -79,17 +80,17 @@ class HNSW(KNNSBase):
 
     def insert(self, data):
         self.graph.insert_data(data)
-        #start = time()
+        start = time()
         data_size = len(data)
         for i, e in enumerate(data):
             self.insert_element(i, e)
             if self.use_ui and i%100 == 0:
-                #end = time()
-                #print(f"{i}: {end-start}s")
-                #start = time()
-                print_indexing_frame(i, data_size)
-        if self.use_ui:
-            print_indexing_frame(data_size, data_size)
+                end = time()
+                print(f"{i}: {end-start}s")
+                start = time()
+                #print_indexing_frame(i, data_size)
+        #if self.use_ui:
+            #print_indexing_frame(data_size, data_size)
 
     def search(self, query, k=1):
         W = []
@@ -142,8 +143,7 @@ class HNSW(KNNSBase):
                 break
             for e in self.graph.get_node(c).get_neighbors(lc):
                 if not e in v:
-                    v.append(e)
-                    f, f_distance = self.get_furthest(W)
+                    v.append(e) 
                     e_distance = self.get_distance(q, self.graph.get_node(e).embedding)
                     if e_distance < f_distance or len(W) < ef:
                         e_and_distance = (e, e_distance)
@@ -151,6 +151,7 @@ class HNSW(KNNSBase):
                         W.append(e_and_distance)
                         if len(W) > ef:
                            W.remove((f, f_distance))
+                        f, f_distance = self.get_furthest(W)
         return W 
     
     def select_neighbors(self, q, C, M):

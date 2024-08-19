@@ -14,14 +14,16 @@ class Dataset():
     def load_from_tfds(self, name):
         if os.path.isfile(f"data/tfds_db_{name}.npy"):
             self.test_embeddings = np.load(f"data/tfds_test_embeddings_{name}.npy").tolist()
+            self.test_embeddings = [np.array(i) for i in self.test_embeddings]
             self.test_neighbors = np.load(f"data/tfds_test_neighbors_{name}.npy").tolist()
             self.db = np.load(f"data/tfds_db_{name}.npy").tolist()
+            self.db = [np.array(i) for i in self.db]
         else:
             tfds_test = list(tfds.load(name, split='test'))
             tfds_db = list(tfds.load(name, split='database'))
-            self.test_embeddings = [i["embedding"] for i in tfds_test]
-            self.test_neighbors = [i["neighbors"]["index"] for i in tfds_test]
-            self.db = [i["embedding"] for i in tfds_db]
+            self.test_embeddings = [np.array(i["embedding"]) for i in tfds_test]
+            self.test_neighbors = [np.array(i["neighbors"]["index"]) for i in tfds_test]
+            self.db = [np.array(i["embedding"]) for i in tfds_db]
             np.save(f"data/tfds_test_embeddings_{name}.npy", self.test_embeddings)
             np.save(f"data/tfds_test_neighbors_{name}.npy", self.test_neighbors)
             np.save(f"data/tfds_db_{name}.npy", self.db)
@@ -51,7 +53,7 @@ def generate_embeddings(n, size=128):
     return embeddings
 
 def generate_embedding(size=128):
-    return np.random.rand(size)
+    return np.array(np.random.rand(size))
 
 if __name__=="__main__":
     ds = Dataset()
