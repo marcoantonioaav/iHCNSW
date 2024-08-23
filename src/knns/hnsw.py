@@ -1,4 +1,4 @@
-from math import floor, log
+from math import floor, log, inf
 from time import time
 
 from knns.base import KNNSBase
@@ -37,13 +37,6 @@ class HNSW_Graph():
         for e in data:
             self.nodes.append(HNSW_Node(e))
 
-    def remove_bidirectional_links(self, index, layer):
-        node = self.get_node(index)
-        for neighbor in node.get_neighbors(layer):
-            self.get_node(neighbor).get_neighbors(layer).remove(index)
-        neighbors = []
-        node.set_neighbors(neighbors, layer)
-
     def set_bidirectional_links(self, index, neighbors, layer):
         node = self.get_node(index)
         node.set_neighbors(neighbors, layer)
@@ -59,17 +52,17 @@ class HNSW_Graph():
     
 
 class HNSW(KNNSBase):
-    def __init__(self, m=5, m_max=None, ef_construction=30, mL=None, ef=30) -> None:
+    def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30) -> None:
         super().__init__()
         self.graph = HNSW_Graph()
         
         self.m = m
-        if m_max == None:
-            self.m_max = m
+        if m_max0 == 'auto':
+            self.m_max0 = 2*m
         else:
-            self.m_max = m_max
+            self.m_max0 = m_max0
         self.ef_construction = ef_construction
-        if mL == None:
+        if mL == 'auto':
             self.mL = 1/log(m)
         else:
            self.mL = mL 
@@ -77,6 +70,11 @@ class HNSW(KNNSBase):
         self.ef = ef
 
         self.use_ui = True
+
+    def get_m_max(self, layer):
+        if layer == 0:
+            return self.m_max0
+        return self.m
 
     def insert(self, data):
         self.graph.insert_data(data)
@@ -112,16 +110,15 @@ class HNSW(KNNSBase):
             ep = self.get_nearest(w)
         for lc in range(min(L, l), -1, -1): 
             w = self.search_layer(q, ep=ep, ef=self.ef_construction, lc=lc)
-            neighbors = self.select_neighbors(q, w, self.m)
+            neighbors = self.select_neighbors_simple(q, w, self.m, lc)
             self.graph.set_bidirectional_links(index, neighbors, lc)
             for e in neighbors:
                 e_node = self.graph.get_node(e)
                 e_conn = e_node.get_neighbors(lc)
-                if len(e_conn) > self.m_max:
+                if len(e_conn) > self.get_m_max(lc):
                     e_conn = [(e_c, self.get_distance(e_node.embedding, self.graph.get_node(e_c).embedding)) for e_c in e_conn]
-                    e_new_conn = self.select_neighbors(e, e_conn, self.m_max)
-                    self.graph.remove_bidirectional_links(e, lc)
-                    self.graph.set_bidirectional_links(e, e_new_conn, lc)
+                    e_new_conn = self.select_neighbors_simple(e, e_conn, self.get_m_max(lc), lc)
+                    e_node.set_neighbors(e_new_conn, lc)
             ep = w[0][0]
         if l > L:
             neighbors = []
@@ -154,8 +151,35 @@ class HNSW(KNNSBase):
                         f, f_distance = self.get_furthest(W)
         return W 
     
-    def select_neighbors(self, q, C, M):
+    def select_neighbors_simple(self, q, C, M, lc):
         return self.get_k_nearest(C, M)
+    
+    def select_neighbors_heuristic(self, q, C, M, lc, extendCandidates=False, keepPrunedConnections=True):
+        R = []
+        W = [c for c in C]
+        Wis = [c[0] for c in C]
+        if extendCandidates:
+            for e, distance in C:
+                for e_adj in self.graph.get_node(e).get_neighbors(lc):
+                    if not e_adj in Wis:
+                        W.append((e_adj, self.get_distance(q, self.graph.get_node(e_adj).embedding)))
+                        Wis.append(e_adj)
+        Wd = []
+        while len(W) > 0 and len(R) < M:
+            e, e_distance = self.get_nearest(W, return_distances=True)
+            W.remove((e, e_distance))
+            r_e_distances = [(r, self.get_distance(e, self.graph.get_node(r).embedding)) for r in R]
+            min_r, min_R_distance = self.get_nearest(r_e_distances, return_distances=True)
+            if e_distance < min_R_distance:
+                R.append(e)
+            else:
+                Wd.append((e, e_distance))
+        if keepPrunedConnections:
+            while len(Wd) > 0 and len(R) < M:
+                e, e_distance = self.get_nearest(Wd, return_distances=True)
+                Wd.remove((e, e_distance))
+                R.append(e)
+        return R
     
     def get_k_nearest(self, node_indexes_and_distances, k, return_distances=False):
         results = []
@@ -173,6 +197,10 @@ class HNSW(KNNSBase):
         return results
     
     def get_nearest(self, node_indexes_and_distances, return_distances=False):
+        if len(node_indexes_and_distances) == 0:
+            if not return_distances:
+                return None
+            return None, inf
         result = node_indexes_and_distances[0]
         for index, distance in node_indexes_and_distances[1:]:
             if distance < result[1]:

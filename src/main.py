@@ -92,8 +92,9 @@ if __name__=="__main__":
         #test_ann(IVF(n_buckets=15, n_probes=3))
         #test_ann_w_generated_embeddings(HNSW(m=20, m_max=50, ef_construction=5, mL=0))
         #test_ann_w_generated_embeddings(HNSW())# 468126 get_distance
-        #test_ann_w_generated_embeddings(HNSW(m=25, m_max=30, ef_construction=70, ef=100))
-        test_ann(HNSW())
+        test_ann_w_generated_embeddings(HNSW(m=20, ef_construction=100, ef=100))
+        #test_ann(HNSW())
+        #test_ann(HNSW(m=20, ef_construction=100, ef=100))
         #test_ann(HNSW(ef_construction=5))
         #test_ann_w_generated_embeddings(ExhaustiveKnn()) #1200 get_distance
 
