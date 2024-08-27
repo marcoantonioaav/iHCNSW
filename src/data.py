@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.decomposition import PCA
 import tensorflow_datasets as tfds
 import os
 from knns.exhaustive import ExhaustiveKnn
@@ -10,23 +11,33 @@ class Dataset():
         self.db = []
         self.test_embeddings = []
         self.test_neighbors = []
+        self.pca_db = []
 
     def load_from_tfds(self, name):
-        if os.path.isfile(f"data/tfds_db_{name}.npy"):
-            self.test_embeddings = np.load(f"data/tfds_test_embeddings_{name}.npy").tolist()
+        if os.path.isfile(f"../data/tfds_db_{name}.npy"):
+            self.test_embeddings = np.load(f"../data/tfds_test_embeddings_{name}.npy").tolist()
             self.test_embeddings = [np.array(i) for i in self.test_embeddings]
-            self.test_neighbors = np.load(f"data/tfds_test_neighbors_{name}.npy").tolist()
-            self.db = np.load(f"data/tfds_db_{name}.npy").tolist()
+            self.test_neighbors = np.load(f"../data/tfds_test_neighbors_{name}.npy").tolist()
+            self.db = np.load(f"../data/tfds_db_{name}.npy").tolist()
             self.db = [np.array(i) for i in self.db]
+            self.pca_db = np.load(f"../data/tfds_db_{name}2d.npy").tolist()
+            self.pca_db = [np.array(i) for i in self.pca_db]
         else:
             tfds_test = list(tfds.load(name, split='test'))
             tfds_db = list(tfds.load(name, split='database'))
             self.test_embeddings = [np.array(i["embedding"]) for i in tfds_test]
             self.test_neighbors = [np.array(i["neighbors"]["index"]) for i in tfds_test]
             self.db = [np.array(i["embedding"]) for i in tfds_db]
-            np.save(f"data/tfds_test_embeddings_{name}.npy", self.test_embeddings)
-            np.save(f"data/tfds_test_neighbors_{name}.npy", self.test_neighbors)
-            np.save(f"data/tfds_db_{name}.npy", self.db)
+            np.save(f"../data/tfds_test_embeddings_{name}.npy", self.test_embeddings)
+            np.save(f"../data/tfds_test_neighbors_{name}.npy", self.test_neighbors)
+            np.save(f"../data/tfds_db_{name}.npy", self.db)
+
+            pca_embeddings = np.concatenate([self.db, self.test_embeddings])
+            pca = PCA(n_components=2)
+            pca.fit(pca_embeddings)
+            transformed = pca.transform(pca_embeddings)
+            t_db = transformed[0:1000000]
+            np.save(f"../data/tfds_db_{name}2d.npy", t_db)
 
     def get_test_size(self):
         return len(self.test_embeddings)
@@ -42,7 +53,7 @@ class Dataset():
         gold_result = [i for i in self.test_neighbors[test_index][:k]]
         found = 0
         for i in range(k):
-            if gold_result.count(search_result[i][0]) != 0:
+            if search_result[i][0] in gold_result:
                 found += 1
         return found/k
 

@@ -1,4 +1,5 @@
-from knns.centroid_hnsw import CentroidHNSW
+from knns.bkmeans_hnsw import BisectingKmeansHNSW
+from knns.bkmeans_hnsw_2 import BisectingKmeansHNSW2
 from knns.exhaustive import ExhaustiveKnn
 import data
 from knns.hnsw import HNSW
@@ -92,13 +93,17 @@ if __name__=="__main__":
         #test_ann(IVF(n_buckets=15, n_probes=3))
         #test_ann_w_generated_embeddings(HNSW(m=20, m_max=50, ef_construction=5, mL=0))
         #test_ann_w_generated_embeddings(HNSW())# 468126 get_distance
-        test_ann_w_generated_embeddings(HNSW(m=20, ef_construction=100, ef=100))
+        #test_ann_w_generated_embeddings(HNSW(m=20, ef_construction=100, ef=100))
         #test_ann(HNSW())
         #test_ann(HNSW(m=20, ef_construction=100, ef=100))
         #test_ann(HNSW(ef_construction=5))
         #test_ann_w_generated_embeddings(ExhaustiveKnn()) #1200 get_distance
 
         #test_ann_w_generated_embeddings(CentroidHNSW(n_clusters=4))
+        #test_ann_w_generated_embeddings(BisectingKmeansHNSW(m=20, ef_construction=100, ef=100))
+        test_ann_w_generated_embeddings(BisectingKmeansHNSW2(m=20, ef_construction=100, ef=100))
+
+    #stats = pstats.Stats(profile)
 
     #stats = pstats.Stats(profile)
     #stats.sort_stats(pstats.SortKey.TIME)
