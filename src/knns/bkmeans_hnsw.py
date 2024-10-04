@@ -1,14 +1,16 @@
 from time import time
 from sklearn.cluster import BisectingKMeans
 import numpy as np
-from random import sample, shuffle
+from random import sample, shuffle, seed
 
 from knns.hnsw import HNSW
 
 class BisectingKmeansHNSW(HNSW):
-    def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30, max_clusters=1024) -> None:
-        super().__init__(m, m_max0, ef_construction, mL, ef)
+    def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30, max_clusters=1024, random_seed=0) -> None:
+        super().__init__(m, m_max0, ef_construction, mL, ef, random_seed)
         self.max_clusters = max_clusters
+        self.seed = random_seed
+        seed(self.seed)
 
     def insert(self, data):
         self.graph.insert_data(data)
@@ -18,7 +20,7 @@ class BisectingKmeansHNSW(HNSW):
         layer = 0
         layer_increment_size = 1
         while layer_increment_size <= self.max_clusters and len(candidates) > 0:
-            kmeans = BisectingKMeans(n_clusters=layer_increment_size, bisecting_strategy='largest_cluster', random_state=0)
+            kmeans = BisectingKMeans(n_clusters=layer_increment_size, bisecting_strategy='largest_cluster', random_state=self.seed)
             kmeans.fit(data)
             centroids = kmeans.cluster_centers_
             for centroid in centroids:

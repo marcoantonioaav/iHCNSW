@@ -5,8 +5,6 @@ from knns.base import KNNSBase
 from random import uniform, seed
 from ui import print_indexing_frame
 
-seed(0)
-
 class HNSW_Node:
     def __init__(self, embedding) -> None:
         self.embedding = embedding
@@ -52,7 +50,7 @@ class HNSW_Graph():
     
 
 class HNSW(KNNSBase):
-    def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30) -> None:
+    def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30, random_seed=0) -> None:
         super().__init__()
         self.graph = HNSW_Graph()
         
@@ -70,6 +68,8 @@ class HNSW(KNNSBase):
         self.ef = ef
 
         self.use_ui = True
+        self.seed = random_seed
+        seed(self.seed)
 
     def get_m_max(self, layer):
         if layer == 0:
