@@ -10,3 +10,5 @@ src/benchmark_gist.ipynb
 src/benchmark_glove.ipynb
 src/benchmark_mnist.ipynb
 src/ecir_benchmark.ipynb
+src/knns/bkmeans_hnsw_2.py
+src/ecir.py

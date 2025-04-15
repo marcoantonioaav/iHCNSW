@@ -5,7 +5,7 @@ from sklearn.cluster import BisectingKMeans
 from knns.hnsw import HNSW
 
 
-class BisectingKmeansHNSW3(HNSW):
+class IterativeHCNSW(HNSW):
     def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30, max_clusters=1024, max_iterations=inf, cluster_exploration_limit=inf) -> None:
         super().__init__(m, m_max0, ef_construction, mL, ef)
         self.max_clusters = max_clusters

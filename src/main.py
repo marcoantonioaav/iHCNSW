@@ -1,4 +1,4 @@
-from knns.bkmeans_hnsw import BisectingKmeansHNSW
+from knns.hcnsw import HCNSW
 from knns.bkmeans_hnsw_2 import BisectingKmeansHNSW2
 from knns.exhaustive import ExhaustiveKnn
 import data

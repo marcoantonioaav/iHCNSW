@@ -5,7 +5,7 @@ from threading import Event, Thread
 
 import numpy as np
 
-from knns.bkmeans_hnsw import BisectingKmeansHNSW
+from knns.hcnsw import HCNSW
 from knns.exhaustive import ExhaustiveKnn
 from knns.hnsw import HNSW
 
@@ -50,7 +50,7 @@ def index_hnsw_and_hcnsw(seed, loading_event):
 
     print(f"indexing hcnsw with seed={seed}")
 
-    hcnsw = BisectingKmeansHNSW(m=20, ef_construction=100, ef=100, max_clusters=1024, random_seed=seed)
+    hcnsw = HCNSW(m=20, ef_construction=100, ef=100, max_clusters=1024, random_seed=seed)
     hcnsw.insert(db_embeddings)
     with open(f'../data/hcnsw_{DB_NAME}_seed{seed}.pkl', 'wb') as file:
         pickle.dump(hcnsw, file, pickle.HIGHEST_PROTOCOL)

@@ -5,7 +5,7 @@ from random import sample, shuffle, seed
 
 from knns.hnsw import HNSW
 
-class BisectingKmeansHNSW(HNSW):
+class HCNSW(HNSW):
     def __init__(self, m=5, m_max0='auto', ef_construction=30, mL='auto', ef=30, max_clusters=1024, random_seed=0) -> None:
         super().__init__(m, m_max0, ef_construction, mL, ef, random_seed)
         self.max_clusters = max_clusters
