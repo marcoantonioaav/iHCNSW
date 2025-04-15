@@ -4,3 +4,9 @@
 *.npy
 *.pkl
 *.zip
+/data
+src/benchmark_fashion_mnist.ipynb
+src/benchmark_gist.ipynb
+src/benchmark_glove.ipynb
+src/benchmark_mnist.ipynb
+src/ecir_benchmark.ipynb

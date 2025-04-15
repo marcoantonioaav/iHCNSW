@@ -11,5 +11,8 @@ class KNNSBase(ABC):
         pass
 
     def get_distance(self, e1, e2):
-        #return 1 - (np.dot(e1, e2)/(np.linalg.norm(e1)*np.linalg.norm(e2))) ## 1-(cossine similarity)
+        #cosine_similarity = np.dot(e1, e2)/(np.linalg.norm(e1)*np.linalg.norm(e2))
+        #return np.arccos(cosine_similarity)/np.pi ## Angular distance
+        #return 1 - cosine_similarity ## Cosine distance
         return np.linalg.norm(e1-e2) ## Euclidean distance (L2 norm)
+        

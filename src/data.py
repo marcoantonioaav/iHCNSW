@@ -1,3 +1,4 @@
+import h5py
 import numpy as np
 from sklearn.decomposition import PCA
 import tensorflow_datasets as tfds
@@ -38,6 +39,13 @@ class Dataset():
             transformed = pca.transform(pca_embeddings)
             t_db = transformed[0:1000000]
             np.save(f"../data/tfds_db_{name}2d.npy", t_db)
+
+    def load_from_hdf5(self, name):
+        filename = f"../data/{name}.hdf5"
+        with h5py.File(filename, "r") as file:
+            self.test_embeddings = list(file['test'])
+            self.test_neighbors = list(file['neighbors'])
+            self.db = list(file['train'])
 
     def get_test_size(self):
         return len(self.test_embeddings)
